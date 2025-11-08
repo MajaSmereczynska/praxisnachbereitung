@@ -25,4 +25,7 @@ A5
 - Python skript fuer export der Tabelle erstellt
 - Dokumentierung der Dokummentierung
 - Commit und push ausgefuehrt
+
+
+ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHlqVoh7jGdgDicZSi5TZxFRHSmWIdcA/i97MWcX0cF/ d.cojocaru1999@gmail.com
  
