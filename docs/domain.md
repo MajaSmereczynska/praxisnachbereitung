@@ -38,3 +38,4 @@ erDiagram
     LOCATION ||--o{ DEVICE : "located_at"
     PERSON ||--o{ ASSIGNMENT : "receives"
     DEVICE ||--o{ ASSIGNMENT : "assigned_to"
+```
