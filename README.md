@@ -1,4 +1,7 @@
 # praxisnachbereitung
+
+## Tag 1
+
 A1
 - Repository erstellt 
 - Lokal geklont
@@ -25,3 +28,10 @@ A5
 - Python skript fuer export der Tabelle erstellt
 - Dokumentierung der Dokummentierung
 - Commit und push ausgefuehrt 
+
+## Tag 2
+
+Prüfliste
+- [X] docker compose up -d erfolgreich; /health = ok
+- [X] docs/domain.md mit ERD & Regeln angelegt
+- [X] Branch, PR, Merge durchgeführt
