@@ -162,3 +162,13 @@ A device must be active to be returned, and cannot be returned twice. (Date logi
   * **Method:** `POST /assignments/1/return`
   * **Result:** `422 Unprocessable Entity` (or `404 Not Found`)
   * **Response:** `{"detail": "Assignment not found or already returned"}`
+
+### F
+
+Implemented a server-side rendered user interface using Jinja2 templates to provide a visual frontend for the inventory system.
+Inventory Dashboard (/devices): Displays a complete list of devices including technical details (Inventory No, Model) and a dynamically calculated status (Free or Assigned) based on active assignments .
+Device Registration: Integrated an HTML form to register new devices.
+Includes dynamic dropdowns fetching real-time data for Locations and Device Types.
+Implements Post-Redirect-Get pattern to handle form submissions.
+Provides visual error feedback for duplicate inventory numbers (Rule IR-01) via URL parameters.
+Navigation: Added a central index.html landing page to navigate between the UI and API documentation.

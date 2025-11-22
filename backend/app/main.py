@@ -1,20 +1,44 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request, Form, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+import os, json
+import paho.mqtt.client as mqtt
+from datetime import datetime
+
+# Import DB connection and Pydantic models
 from .db import get_conn
 from .models import DeviceCreate, AssignmentCreate
 
-app = FastAPI(title="Inventar API (Section E)", version="1.0.0")
+app = FastAPI(title="Inventar App", version="1.0.0")
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+
+# --- MQTT Helper ---
+MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+
+def mqtt_client() -> mqtt.Client:
+    c = mqtt.Client()
+    c.connect(MQTT_HOST, MQTT_PORT, keepalive=30)
+    return c
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "title": "Inventar App"}
+    )
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# SECTION E.2: DEVICES
-@app.get("/devices")
-def list_devices():
-    """
-    List all devices including their status (Free vs Assigned).
-    """
+# SECTION F.1 & F.2: DEVICES UI
+
+@app.get("/devices", response_class=HTMLResponse)
+def devices_page(request: Request, error: str = None):
+    # Added 'error' parameter here to catch messages from the URL
     with get_conn() as conn, conn.cursor() as cur:
+        # F.1: List all devices
         cur.execute("""
             SELECT d.device_id, d.inventory_no, d.model, 
                    dt.description as type_name, l.name as location_name,
@@ -28,31 +52,55 @@ def list_devices():
             LEFT JOIN assignment a ON d.device_id = a.device_id AND a.assigned_to IS NULL
             ORDER BY d.inventory_no
         """)
-        return cur.fetchall()
+        devices = list(cur.fetchall())
 
-@app.post("/devices", status_code=201)
-def create_device(device: DeviceCreate):
-    """
-    Create a new device.
-    Rule IR-01: Unique Inventory Number.
-    """
+        cur.execute("SELECT * FROM devicetype ORDER BY description")
+        types = list(cur.fetchall())
+        
+        cur.execute("SELECT * FROM location ORDER BY name")
+        locations = list(cur.fetchall())
+
+    return templates.TemplateResponse(
+        "inventory.html",
+        {
+            "request": request, 
+            "title": "Geräteverwaltung", 
+            "devices": devices,
+            "types": types,
+            "locations": locations,
+            "error": error # Pass error message to template HTML
+        },
+    )
+
+@app.post("/devices", response_class=HTMLResponse)
+def create_device(
+    request: Request,
+    inventory_no: str = Form(...),
+    devicetype_id: int = Form(...),
+    location_id: int = Form(...),
+    model: str = Form(...)
+):
+    # F.2: POST Endpoint for new devices
     with get_conn() as conn, conn.cursor() as cur:
-        # Check if inventory_no exists
-        cur.execute("SELECT 1 FROM device WHERE inventory_no = %s", (device.inventory_no,))
-        if cur.fetchone():
-            # Rule IR-01 violation -> HTTP 409 
-            raise HTTPException(status_code=409, detail="Inventory number already exists")
-
+        # Added RETURNING device_id to check if it worked
         cur.execute(
             """
             INSERT INTO device (inventory_no, devicetype_id, location_id, model)
             VALUES (%s, %s, %s, %s)
+            ON CONFLICT (inventory_no) DO NOTHING
             RETURNING device_id
             """,
-            (device.inventory_no, device.devicetype_id, device.location_id, device.model)
+            (inventory_no, devicetype_id, location_id, model)
         )
-        new_id = cur.fetchone()['device_id']
-        return {"msg": "Device created", "device_id": new_id}
+        row = cur.fetchone()
+        
+    if not row:
+        # If 'row' is None, the insert failed (duplicate)
+        # Redirect with an error message in the URL
+        return RedirectResponse("/devices?error=Doppelte Inventarnummer!", status_code=303)
+    
+    # Success
+    return RedirectResponse("/devices", status_code=303)
 
 # SECTION E.3: ASSIGNMENTS
 @app.get("/assignments/active")
