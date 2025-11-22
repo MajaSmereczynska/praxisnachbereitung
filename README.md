@@ -93,68 +93,72 @@ Implementation of a RESTful API using **FastAPI** and **Pydantic** to manage the
 | `POST` | `/assignments` | [cite_start]Issue a device to a person (validates IR-02). |
 | `POST` | `/assignments/{id}/return` | [cite_start]Mark an assignment as finished (validates IR-03). |
 
-1. Rule IR-01: Unique Inventory Number
+**1. Rule IR-01: Unique Inventory Number Constraint**
+No two devices can share the same `inventory_no`.
 
-Constraint: No two devices can share the same inventory_no.
+* ✅ **Success (Happy Path)**
+  * **Action:** Create a new device with a unique ID.
+  * **Method:** `POST /devices`
+  * **Payload:**
+    ```json
+    {
+      "inventory_no": "TEST-DEVICE-01",
+      "devicetype_id": 1,
+      "location_id": 1,
+      "model": "Test Model X"
+    }
+    ```
+  * **Result:** `200 OK` / `201 Created`
 
-✅ Success (Happy Path)
-Create a new device with a unique ID.
-Method: POST /devices
-Payload:
-JSON
-{
-  "inventory_no": "TEST-DEVICE-01",
-  "devicetype_id": 1,
-  "location_id": 1,
-  "model": "Test Model X"
-}
-Result: 200 OK / 201 Created
+* ❌ **Error Case**
+  * **Action:** Try to create the same device again.
+  * **Payload:** (Same as above)
+  * **Result:** `409 Conflict`
+  * **Response:** `{"detail": "Inventory number already exists"}`
 
-❌ Error Case
-Try to create the same device again.
-Payload: (Same as above)
-Result: 409 Conflict
-Response: {"detail": "Inventory number already exists"}.
+---
 
-2. Rule IR-02: One Active Assignment
+**2. Rule IR-02: One Active Assignment Constraint**
+A device cannot be assigned if it is currently issued to someone else (i.e., not yet returned).
 
-Constraint: A device cannot be assigned if it is currently issued to someone else (i.e., not yet returned).
+* ✅ **Success (Happy Path)**
+  * **Action:** Issue a device that is currently "Free".
+  * **Method:** `POST /assignments`
+  * **Payload:**
+    ```json
+    {
+      "device_id": 1,
+      "personnel_no": 1
+    }
+    ```
+  * **Result:** `200 OK` / `201 Created` (Returns `assignment_id`, e.g., 5)
 
-✅ Success (Happy Path)
-Issue a device that is currently "Free".
-Method: POST /assignments
-Payload:
-JSON
-{
-  "device_id": 1,
-  "personnel_no": 1
-}
-Result: 200 OK / 201 Created (Returns assignment_id, e.g., 5).
+* ❌ **Error Case**
+  * **Action:** Try to assign Device 1 again while the previous assignment is still active.
+  * **Payload:**
+    ```json
+    {
+      "device_id": 1,
+      "personnel_no": 2
+    }
+    ```
+  * **Result:** `409 Conflict`
+  * **Response:** `{"detail": "Device is already assigned"}`
 
-❌ Error Case
-Try to assign Device 1 again while the previous assignment is still active.
-Payload:
-JSON
-{
-  "device_id": 1,
-  "personnel_no": 2
-}
-Result: 409 Conflict
-Response: {"detail": "Device is already assigned"}.
+---
 
-3. Rule IR-03: Lifecycle Consistency
+**3. Rule IR-03: Lifecycle Consistency Constraint**
+A device must be active to be returned, and cannot be returned twice. (Date logic `assigned_to` >= `assigned_from` is enforced by DB constraints).
 
-Constraint: A device must be active to be returned, and cannot be returned twice. (Date logic assigned_to >= assigned_from is enforced by DB constraints) .
+* ✅ **Success (Happy Path)**
+  * **Action:** Return the assignment created in the previous step.
+  * **Method:** `POST /assignments/{assignment_id}/return`
+  * **Path Parameter:** `assignment_id = 1`
+  * **Result:** `200 OK`
+  * **Response:** `{"msg": "Device returned"}`
 
-✅ Success (Happy Path)
-Return the assignment created in the previous step.
-Method: POST /assignments/{assignment_id}/return
-Path Parameter: assignment_id = 1.
-Result: 200 OK
-Response: {"msg": "Device returned"}.
-
-❌ Error Case
-Try to return the same assignment (ID 1) a second time.
-Method: POST /assignments/5/return
-Result: 422 Not Found
-Response: {"detail": "Assignment not found or already returned"}.
+* ❌ **Error Case**
+  * **Action:** Try to return the same assignment (ID 1) a second time.
+  * **Method:** `POST /assignments/1/return`
+  * **Result:** `422 Unprocessable Entity` (or `404 Not Found`)
+  * **Response:** `{"detail": "Assignment not found or already returned"}`
