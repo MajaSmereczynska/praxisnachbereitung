@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Response
+from fastapi import FastAPI, HTTPException, Request, Form, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import os, json
@@ -102,7 +102,8 @@ def create_device(
     # Success
     return RedirectResponse("/devices", status_code=303)
 
-# SECTION E.3: ASSIGNMENTS
+# SECTION E.3: ASSIGNMENTS (With Phase G MQTT)
+
 @app.get("/assignments/active")
 def list_active_assignments():
     """
@@ -133,20 +134,35 @@ def create_assignment(assign: AssignmentCreate):
             (assign.device_id,)
         )
         if cur.fetchone():
-            # Rule IR-02 violation -> HTTP 409
             raise HTTPException(status_code=409, detail="Device is already assigned")
 
-        # Create assignment (If date not provided, DB defaults to NOW via COALESCE or SQL default)
+        # Create assignment
+        # CHANGED: Added 'assigned_from' to RETURNING so we can send it via MQTT
         cur.execute(
             """
             INSERT INTO assignment (device_id, personnel_no, assigned_from)
             VALUES (%s, %s, COALESCE(%s, NOW()))
-            RETURNING assignment_id
+            RETURNING assignment_id, assigned_from
             """,
             (assign.device_id, assign.personnel_no, assign.assigned_from)
         )
-        new_id = cur.fetchone()['assignment_id']
-        return {"msg": "Assignment created", "assignment_id": new_id}
+        row = cur.fetchone()
+        
+        # PHASE G: MQTT Event
+        if row:
+            try:
+                c = mqtt_client()
+                payload = {
+                    "event": "issued",
+                    "device_id": assign.device_id,
+                    "personnel_no": assign.personnel_no,
+                    "assigned_from": str(row["assigned_from"])
+                }
+                c.publish("inventory/assignments/issued", json.dumps(payload))
+            except Exception as e:
+                print(f"MQTT Error: {e}")
+
+        return {"msg": "Assignment created", "assignment_id": row['assignment_id']}
 
 @app.post("/assignments/{assignment_id}/return")
 def return_assignment(assignment_id: int):
@@ -156,19 +172,34 @@ def return_assignment(assignment_id: int):
     """
     with get_conn() as conn, conn.cursor() as cur:
         try:
+            # CHANGED: Added 'device_id' and 'assigned_to' to RETURNING
             cur.execute(
                 """
                 UPDATE assignment
                 SET assigned_to = NOW()
                 WHERE assignment_id = %s AND assigned_to IS NULL
-                RETURNING assignment_id
+                RETURNING assignment_id, device_id, assigned_to
                 """,
                 (assignment_id,)
             )
             row = cur.fetchone()
+            
             if not row:
                 raise HTTPException(status_code=404, detail="Assignment not found or already returned")
             
+            # PHASE G: MQTT Event
+            try:
+                c = mqtt_client()
+                payload = {
+                    "event": "returned",
+                    "assignment_id": assignment_id,
+                    "device_id": row['device_id'],
+                    "returned_at": str(row['assigned_to'])
+                }
+                c.publish("inventory/assignments/returned", json.dumps(payload))
+            except Exception as e:
+                print(f"MQTT Error: {e}")
+
             return {"msg": "Device returned"}
             
         except Exception as e:

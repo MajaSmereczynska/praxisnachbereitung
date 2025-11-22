@@ -172,3 +172,15 @@ Includes dynamic dropdowns fetching real-time data for Locations and Device Type
 Implements Post-Redirect-Get pattern to handle form submissions.
 Provides visual error feedback for duplicate inventory numbers (Rule IR-01) via URL parameters.
 Navigation: Added a central index.html landing page to navigate between the UI and API documentation.
+
+### G
+
+Events in Terminal when a device is issued or returned (udner different topics)
+
+### Prüfliste (Ende der Übung)
+- [X] Tag-2-Branch (tag2-mqtt-demo o. ä.) existiert und läuft mit MQTT-Chat.
+- [X] Inventar-Branch (feat/inventar-app o. ä.) existiert.
+- [X] Init-SQL für Inventar ist angelegt und erzeugt alle Tabellen.
+- [X] REST-Endpunkte für Devices & Assignments funktionieren inkl. Domänenregeln.
+- [X] Mindestens eine einfache UI-Seite für Inventar ist vorhanden.
+- [X] Ihr könnt Branch-Wechsel, Schema, API und einen UI-Flow mündlich erklären. 
