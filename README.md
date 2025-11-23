@@ -184,3 +184,15 @@ Events in Terminal when a device is issued or returned (udner different topics)
 - [X] REST-Endpunkte für Devices & Assignments funktionieren inkl. Domänenregeln.
 - [X] Mindestens eine einfache UI-Seite für Inventar ist vorhanden.
 - [X] Ihr könnt Branch-Wechsel, Schema, API und einen UI-Flow mündlich erklären. 
+
+## Tag 4
+
+### A
+
+📝 Schema Change: Damage Notes
+Business Requirement: We need to capture information about potential damages when a device is returned.
+Implementation: Added a new column damage_notes to the assignment table.
+Design Decisions:
+Type: Text was chosen to allow free-form descriptions of the damage.
+Optionality: The column is nullable (optional) because most devices are returned without damage, so it should not be a mandatory field.
+Tooling: Migration created and applied using Alembic.
