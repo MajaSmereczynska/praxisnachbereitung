@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException, Request, Form, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-import os, json
+import os, json, csv, io
+import pandas as pd
 import paho.mqtt.client as mqtt
 from datetime import datetime
 
@@ -205,3 +206,101 @@ def return_assignment(assignment_id: int):
         except Exception as e:
             # If DB constraint "check_dates" fails (IR-03), it raises an error here
             raise HTTPException(status_code=422, detail=f"Domain Rule Error: {e}")
+        
+@app.get("/assignments.csv")
+def export_assignments_csv():
+    """
+    Export all assignments as a CSV file.
+    """
+    with get_conn() as conn, conn.cursor() as cur:
+        # 1. Reporting Query (Joins all tables + damage_notes)
+        cur.execute("""
+            SELECT 
+                a.assignment_id, 
+                d.inventory_no, 
+                dt.description as device_type, 
+                l.name as location_name, 
+                p.name as person_name, 
+                a.assigned_from, 
+                a.assigned_to, 
+                a.damage_notes
+            FROM assignment a
+            JOIN device d ON a.device_id = d.device_id
+            JOIN devicetype dt ON d.devicetype_id = dt.devicetype_id
+            LEFT JOIN location l ON d.location_id = l.location_id
+            JOIN person p ON a.personnel_no = p.personnel_no
+            ORDER BY a.assigned_from DESC
+        """)
+        rows = cur.fetchall()
+
+    # 2. Create CSV in Memory
+    output = io.StringIO()
+    
+    if rows:
+        # Get column names dynamically from the query result
+        fieldnames = list(rows[0].keys())
+        writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=";", lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    else:
+        # Write header only if empty
+        output.write("No assignments found")
+
+    # 3. Return as File Download
+    response = Response(content=output.getvalue(), media_type="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=assignments.csv"
+    return response
+
+
+@app.get("/assignments.xlsx")
+def export_assignments_xlsx():
+    """
+    Export all assignments as an Excel file using Pandas.
+    Fixed: Uses manual fetch to ensure compatibility with Psycopg3 dict_rows.
+    """
+    with get_conn() as conn, conn.cursor() as cur:
+        # 1. Execute the Query manually
+        sql = """
+            SELECT 
+                a.assignment_id, 
+                d.inventory_no, 
+                dt.description as device_type, 
+                l.name as location_name, 
+                p.name as person_name, 
+                a.assigned_from, 
+                a.assigned_to, 
+                a.damage_notes
+            FROM assignment a
+            JOIN device d ON a.device_id = d.device_id
+            JOIN devicetype dt ON d.devicetype_id = dt.devicetype_id
+            LEFT JOIN location l ON d.location_id = l.location_id
+            JOIN person p ON a.personnel_no = p.personnel_no
+            ORDER BY a.assigned_from DESC
+        """
+        cur.execute(sql)
+        rows = cur.fetchall() # Returns a list of dictionaries
+
+    # 2. Create DataFrame from the list of dicts
+    if not rows:
+        # Handle empty case
+        df = pd.DataFrame(columns=["assignment_id", "inventory_no", "device_type", "location_name", "person_name", "assigned_from", "assigned_to", "damage_notes"])
+    else:
+        df = pd.DataFrame(rows)
+
+    # 3. Create Excel in Memory (BytesIO)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Assignments')
+    
+    output.seek(0)
+
+    # 4. Return as File Download
+    headers = {
+        'Content-Disposition': 'attachment; filename="assignments.xlsx"'
+    }
+    return Response(
+        content=output.getvalue(), 
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+        headers=headers
+    )

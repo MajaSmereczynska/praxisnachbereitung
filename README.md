@@ -184,3 +184,40 @@ Events in Terminal when a device is issued or returned (udner different topics)
 - [X] REST-Endpunkte für Devices & Assignments funktionieren inkl. Domänenregeln.
 - [X] Mindestens eine einfache UI-Seite für Inventar ist vorhanden.
 - [X] Ihr könnt Branch-Wechsel, Schema, API und einen UI-Flow mündlich erklären. 
+
+## Tag 4
+
+### A
+
+📝 Schema Change: Damage Notes
+Business Requirement: We need to capture information about potential damages when a device is returned.
+Implementation: Added a new column damage_notes to the assignment table.
+Design Decisions:
+Type: Text was chosen to allow free-form descriptions of the damage.
+Optionality: The column is nullable (optional) because most devices are returned without damage, so it should not be a mandatory field.
+Tooling: Migration created and applied using Alembic.
+
+### B
+
+1. CSV Export (/assignments.csv)
+Format: Plain text, semicolon-separated values.
+Use Case: Ideal for automated data processing and stable imports.
+Advantage: Lightweight and universally readable by almost any tool (Power Query, Python scripts, legacy systems). It creates a stable "data pipeline" connection in Excel that refreshes easily without formatting issues.
+
+2. Excel Export (/assignments.xlsx)
+Format: Binary OpenXML format (generated via Pandas/OpenPyXL).
+Use Case: Ideal for business users and ad-hoc reporting.
+Advantage: Ready-to-use for humans. It opens directly in Excel with correct column types (dates recognized automatically) and headers, requiring no import wizard configuration.
+
+Recommendation: Use CSV for building permanent dashboards (Power BI/Excel Power Query) and XLSX for quick email snapshots or management reports.
+
+### C
+Comparison: URL vs. File Import
+
+Variant 1 (CSV via URL): 
+Best for: Live Dashboards and "Always Up-to-Date" reporting.
+Why: The user just clicks "Refresh" to get the latest state from the database without leaving Excel.
+
+Variant 2 (XLSX File):
+Best for: Monthly Reports, Archiving, or Offline Analysis.
+Why: It creates a "Snapshot" in time. Use this when you need to freeze the data (e.g., "Q3 Inventory Report") and ensure it doesn't change even if the database updates.
