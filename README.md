@@ -210,3 +210,14 @@ Use Case: Ideal for business users and ad-hoc reporting.
 Advantage: Ready-to-use for humans. It opens directly in Excel with correct column types (dates recognized automatically) and headers, requiring no import wizard configuration.
 
 Recommendation: Use CSV for building permanent dashboards (Power BI/Excel Power Query) and XLSX for quick email snapshots or management reports.
+
+### C
+Comparison: URL vs. File Import
+
+Variant 1 (CSV via URL):art 
+Best for: Live Dashboards and "Always Up-to-Date" reporting.
+Why: The user just clicks "Refresh" to get the latest state from the database without leaving Excel.
+
+Variant 2 (XLSX File):
+Best for: Monthly Reports, Archiving, or Offline Analysis.
+Why: It creates a "Snapshot" in time. Use this when you need to freeze the data (e.g., "Q3 Inventory Report") and ensure it doesn't change even if the database updates.

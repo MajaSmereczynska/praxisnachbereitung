@@ -257,9 +257,10 @@ def export_assignments_csv():
 def export_assignments_xlsx():
     """
     Export all assignments as an Excel file using Pandas.
+    Fixed: Uses manual fetch to ensure compatibility with Psycopg3 dict_rows.
     """
-    with get_conn() as conn:
-        # 1. Use Pandas to read SQL directly into a DataFrame
+    with get_conn() as conn, conn.cursor() as cur:
+        # 1. Execute the Query manually
         sql = """
             SELECT 
                 a.assignment_id, 
@@ -277,17 +278,24 @@ def export_assignments_xlsx():
             JOIN person p ON a.personnel_no = p.personnel_no
             ORDER BY a.assigned_from DESC
         """
-        # Read SQL directly into a Pandas DataFrame
-        df = pd.read_sql(sql, conn)
+        cur.execute(sql)
+        rows = cur.fetchall() # Returns a list of dictionaries
 
-    # 2. Create Excel in Memory (BytesIO)
+    # 2. Create DataFrame from the list of dicts
+    if not rows:
+        # Handle empty case
+        df = pd.DataFrame(columns=["assignment_id", "inventory_no", "device_type", "location_name", "person_name", "assigned_from", "assigned_to", "damage_notes"])
+    else:
+        df = pd.DataFrame(rows)
+
+    # 3. Create Excel in Memory (BytesIO)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Assignments')
     
     output.seek(0)
 
-    # 3. Return as File Download
+    # 4. Return as File Download
     headers = {
         'Content-Disposition': 'attachment; filename="assignments.xlsx"'
     }
