@@ -214,7 +214,7 @@ Recommendation: Use CSV for building permanent dashboards (Power BI/Excel Power 
 ### C
 Comparison: URL vs. File Import
 
-Variant 1 (CSV via URL):art 
+Variant 1 (CSV via URL): 
 Best for: Live Dashboards and "Always Up-to-Date" reporting.
 Why: The user just clicks "Refresh" to get the latest state from the database without leaving Excel.
 
